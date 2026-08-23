@@ -3,10 +3,14 @@
 :root {
   --background: #fafafa;
   --foreground: #18181b;
+  --accent: #a3e635;
+  --accent-dark: #65a30d;
 }
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -14,4 +18,13 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+.hero-gradient {
+  background: radial-gradient(1200px 500px at 20% -10%, #ecfccb 0%, transparent 60%),
+    radial-gradient(900px 400px at 90% 0%, #d9f99d 0%, transparent 55%),
+    linear-gradient(to bottom, #ffffff 0%, #fafafa 100%);
+}
+.glass {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.8);
 }

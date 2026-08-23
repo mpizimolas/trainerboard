@@ -113,7 +113,7 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-      <div className={`${useSupa ? "bg-green-50 border-green-200 text-green-900" : "bg-amber-50 border-amber-200 text-amber-900"} border rounded-xl px-4 py-3 text-xs flex flex-col sm:flex-row justify-between gap-2`}>
+      <div className={`${useSupa ? "bg-emerald-50 border-emerald-200 text-emerald-900" : "bg-amber-50 border-amber-200 text-amber-900"} border rounded-2xl px-4 py-3 text-xs flex flex-col sm:flex-row justify-between gap-2 shadow-sm`}>
         <span>
           {useSupa ? <><strong>Supabase mode:</strong> Signed in as {supa!.user?.email} — data in Postgres (RLS per trainer). <button onClick={async()=>{ const {createClient}=await import("@/lib/supabase/client"); await createClient().auth.signOut(); location.reload(); }} className="underline ml-2">Sign out</button></> : <><strong>Demo mode:</strong> Data in browser localStorage. Add Supabase env to persist (see .env.example + supabase/schema.sql).</>}
         </span>
@@ -123,8 +123,8 @@ export default function DashboardPage() {
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border rounded-2xl p-5">
-            <h2 className="font-semibold">Today&apos;s check-ins — {today}</h2>
+          <div className="bg-white border rounded-3xl p-6 shadow-sm">
+            <h2 className="font-bold tracking-tight flex items-center gap-2"><span className="w-2 h-2 bg-lime-500 rounded-full animate-pulse" /> Today&apos;s check-ins — {today}</h2>
             <p className="text-sm text-zinc-500">{todaysAssignments.length} assigned</p>
             <div className="mt-4 space-y-3">
               {todaysAssignments.length === 0 && <p className="text-sm text-zinc-400">No workouts for today. Assign one.</p>}
@@ -202,8 +202,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="bg-zinc-900 text-white rounded-2xl p-5">
-            <h2 className="font-semibold">Assign workout</h2>
+          <div className="bg-zinc-900 text-white rounded-3xl p-6 shadow-lg relative overflow-hidden">
+            <div className="absolute -top-10 -right-10 w-32 h-32 bg-lime-400 rounded-full blur-2xl opacity-20" />
+            <h2 className="font-bold flex items-center gap-2 relative"><span className="w-6 h-6 rounded-xl bg-lime-400 flex items-center justify-center text-zinc-900 text-xs">→</span> Assign workout</h2>
             <select value={assignWorkoutId} onChange={(e) => setAssignWorkoutId(e.target.value)} className="mt-3 w-full rounded-xl px-3 py-2 text-sm text-zinc-900 bg-white">
               {workouts.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
             </select>
