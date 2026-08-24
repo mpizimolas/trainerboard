@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBio, setEditBio] = useState("");
   const [editGoals, setEditGoals] = useState("");
+  const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
 
   const [supa, setSupa] = useState<SupaState>(null);
   const [supaLoading, setSupaLoading] = useState(isSupaEnv);
@@ -98,6 +99,9 @@ export default function DashboardPage() {
     else { setStore((s) => assignWorkoutLocal(s, assignWorkoutId, assignClientId, assignDate)); }
   }
   async function handleToggle(aId: string, status: string) {
+    const next = status === "completed" ? "pending" : "completed";
+    // expand when un-completing, compress when completing
+    setExpandedAssignments((prev) => ({ ...prev, [aId]: next === "pending" }));
     if (useSupa) { const { toggleAssignmentDb } = await import("@/lib/db"); await toggleAssignmentDb(aId, status); await loadSupa(); }
     else { setStore((s) => toggleAssignmentComplete(s, aId)); }
   }
@@ -135,15 +139,42 @@ export default function DashboardPage() {
             <div className="mt-4 space-y-3">
               {todaysAssignments.length === 0 && <p className="text-sm text-zinc-400">No workouts for today. Assign one.</p>}
               {todaysAssignments.map((a) => {
-                const w = workouts.find((x) => x.id === a.workout_id);
+                const w = workouts.find((x) => x.id === a.workout_id) as { title?: string; exercises?: Array<{ exercise_id: string; sets: number; reps: string; rest: number }> } | undefined;
                 const c = clientsAny.find((x) => x.id === a.client_id);
-                return (
-                  <div key={a.id} className="flex items-center justify-between border rounded-2xl px-4 py-3 bg-zinc-50">
-                    <div>
-                      <div className="font-medium text-sm">{w?.title} → {c?.name}</div>
-                      <div className="text-xs text-zinc-500">{a.status} • {c?.goals ? `Goal: ${c.goals.slice(0,40)}…` : "No goal set"} • <Link href={`/c/${c?.invite_token ?? ""}`} className="underline">Client link</Link></div>
+                const isCompleted = a.status === "completed";
+                const isExpanded = expandedAssignments[a.id] ?? !isCompleted;
+                if (isCompleted && !isExpanded) {
+                  // Compressed view
+                  return (
+                    <div key={a.id} onClick={() => handleToggle(a.id, a.status)} className="flex items-center justify-between border rounded-2xl px-4 py-3 bg-zinc-100 opacity-70 hover:opacity-100 cursor-pointer transition">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">✓</span>
+                        <div>
+                          <div className="font-medium text-sm line-through decoration-zinc-400">{w?.title} → {c?.name}</div>
+                          <div className="text-xs text-zinc-500">Completed • Click to undo & expand</div>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-zinc-600 underline">Undo</span>
                     </div>
-                    <button onClick={() => handleToggle(a.id, a.status)} className={`text-xs px-3 py-1.5 rounded-full font-bold ${a.status === "completed" ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{a.status === "completed" ? "Completed ✓" : "Mark done"}</button>
+                  );
+                }
+                return (
+                  <div key={a.id} className="border rounded-2xl p-4 bg-white shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="font-semibold text-sm">{w?.title} → {c?.name}</div>
+                        <div className="text-xs text-zinc-500 mt-0.5">{a.status} • {c?.goals ? `Goal: ${c.goals.slice(0,40)}…` : "No goal set"} • <Link href={`/c/${c?.invite_token ?? ""}`} className="underline" onClick={(e)=> e.stopPropagation()}>Client link</Link></div>
+                        {w?.exercises && w.exercises.length > 0 && (
+                          <ul className="mt-3 space-y-1 bg-zinc-50 border rounded-xl p-3">
+                            {w.exercises.map((ex, idx) => (
+                              <li key={idx} className="text-xs text-zinc-700 flex justify-between"><span>{idx+1}. {exerciseById(ex.exercise_id)?.name}</span><span className="text-zinc-500">{ex.sets}×{ex.reps} • {ex.rest}s</span></li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <button onClick={() => handleToggle(a.id, a.status)} className={`shrink-0 text-xs px-3.5 py-1.5 rounded-full font-bold shadow-sm ${isCompleted ? "bg-emerald-500 text-white hover:bg-emerald-600" : "bg-zinc-900 text-white hover:bg-black"}`}>{isCompleted ? "Completed ✓" : "Mark done"}</button>
+                    </div>
+                    {isCompleted && <button onClick={() => setExpandedAssignments((p)=> ({...p, [a.id]: false}))} className="mt-2 text-xs text-zinc-500 underline">Compress</button>}
                   </div>
                 );
               })}
