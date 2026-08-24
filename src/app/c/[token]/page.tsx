@@ -15,6 +15,7 @@ export default function ClientPage({ params }: { params: Promise<{ token: string
   const [supaData, setSupaData] = useState<SupaClientData>(null);
   const [supaLoading, setSupaLoading] = useState(false);
   const [supaError, setSupaError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const isSupaEnv = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
@@ -42,24 +43,50 @@ export default function ClientPage({ params }: { params: Promise<{ token: string
 
   if (supaData) {
     const client = supaData.client;
+    const handleToggleSupa = async (aId: string, status: string) => {
+      const next = status === "completed" ? "pending" : "completed";
+      setExpanded((p) => ({ ...p, [aId]: next === "pending" }));
+      const { toggleAssignmentDb } = await import("@/lib/db");
+      await toggleAssignmentDb(aId, status);
+      // Optimistic update without full reload
+      setSupaData((prev) => prev ? { ...prev, assignments: prev.assignments.map(x => x.id === aId ? { ...x, status: next } : x) } : prev);
+    };
     return (
       <div className="min-h-screen bg-zinc-50 flex flex-col">
         <header className="bg-white border-b sticky top-0"><div className="max-w-lg mx-auto px-6 h-14 flex items-center justify-between"><span className="font-bold">TrainerBoard</span><span className="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full">Supabase • {client.name}</span></div></header>
         <main className="flex-1 max-w-lg mx-auto w-full px-6 py-6 space-y-4">
           <div className="bg-white border rounded-3xl p-5 shadow-sm"><h1 className="font-bold">Hi {client.name.split(" ")[0]} 👋</h1><p className="text-sm text-zinc-500">Trainer assigned workouts — check off sets as you go.</p></div>
           {supaData.assignments.length === 0 && <div className="bg-amber-50 border rounded-2xl p-5 text-sm">No workouts assigned yet.</div>}
-          {supaData.assignments.map((a) => (
-            <div key={a.id} className="bg-white border rounded-2xl p-5">
-              <div className="font-semibold">{a.workouts.title}</div><div className="text-xs text-zinc-500">{a.assigned_date} • {a.status} • {a.workouts.notes}</div>
-              <div className="mt-4 space-y-3">
-                {(a.workouts.workout_exercises ?? []).map((ex, idx) => {
-                  const meta = exerciseById(ex.exercise_id);
-                  return <div key={idx} className="border rounded-xl p-3"><div className="font-medium text-sm">{idx + 1}. {meta?.name}</div><div className="text-xs text-zinc-500">{ex.sets}×{ex.reps} rest {ex.rest_seconds}s</div></div>;
-                })}
+          {supaData.assignments.map((a) => {
+            const isCompleted = a.status === "completed";
+            const isExpanded = expanded[a.id] ?? !isCompleted;
+            if (isCompleted && !isExpanded) {
+              return (
+                <div key={a.id} onClick={() => handleToggleSupa(a.id, a.status)} className="flex items-center justify-between border rounded-2xl px-4 py-3 bg-zinc-100 opacity-70 hover:opacity-100 cursor-pointer transition">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">✓</span>
+                    <div><div className="font-medium text-sm line-through decoration-zinc-400">{a.workouts.title}</div><div className="text-xs text-zinc-500">Completed • Tap to undo & expand</div></div>
+                  </div>
+                  <span className="text-xs font-bold underline text-zinc-600">Undo</span>
+                </div>
+              );
+            }
+            return (
+              <div key={a.id} className="bg-white border rounded-2xl p-5">
+                <div className="font-semibold">{a.workouts.title}</div><div className="text-xs text-zinc-500">{a.assigned_date} • {a.status} • {a.workouts.notes}</div>
+                <div className="mt-4 space-y-3">
+                  {(a.workouts.workout_exercises ?? []).map((ex, idx) => {
+                    const meta = exerciseById(ex.exercise_id);
+                    return <div key={idx} className="border rounded-xl p-3"><div className="font-medium text-sm">{idx + 1}. {meta?.name}</div><div className="text-xs text-zinc-500">{ex.sets}×{ex.reps} rest {ex.rest_seconds}s</div></div>;
+                  })}
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button onClick={() => handleToggleSupa(a.id, a.status)} className={`text-xs px-3.5 py-1.5 rounded-full font-bold ${isCompleted ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{isCompleted ? "Completed ✓" : "Mark complete"}</button>
+                  {isCompleted && <button onClick={() => setExpanded((p)=> ({...p, [a.id]: false}))} className="text-xs underline text-zinc-500">Compress</button>}
+                </div>
               </div>
-              <button onClick={async()=>{ const { toggleAssignmentDb } = await import("@/lib/db"); await toggleAssignmentDb(a.id, a.status); location.reload(); }} className={`mt-3 text-xs px-3 py-1.5 rounded-full font-bold ${a.status==="completed" ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{a.status==="completed" ? "Completed ✓" : "Mark complete"}</button>
-            </div>
-          ))}
+            );
+          })}
           <Link href="/dashboard" className="block text-center text-xs underline text-zinc-500">Trainer dashboard →</Link>
         </main>
       </div>
@@ -100,9 +127,28 @@ export default function ClientPage({ params }: { params: Promise<{ token: string
         {assignments.map((a) => {
           const w = store.workouts.find((x) => x.id === a.workout_id)!;
           if (!w) return null;
+          const isCompleted = a.status === "completed";
+          const isExpanded = expanded[a.id] ?? !isCompleted;
+          const handleToggleLocal = () => {
+            const next = isCompleted ? "pending" : "completed";
+            setExpanded((p) => ({ ...p, [a.id]: next === "pending" }));
+            setStore((s)=> toggleAssignmentComplete(s, a.id));
+          };
+          if (isCompleted && !isExpanded) {
+            return (
+              <div key={a.id} onClick={handleToggleLocal} className="flex items-center justify-between border rounded-2xl px-4 py-3 bg-zinc-100 opacity-70 hover:opacity-100 cursor-pointer transition">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">✓</span>
+                  <div><div className="font-semibold text-sm line-through decoration-zinc-400">{w.title}</div><div className="text-xs text-zinc-500">Completed • Tap to undo & expand to edit</div></div>
+                </div>
+                <span className="text-xs font-bold underline text-zinc-600">Undo</span>
+              </div>
+            );
+          }
           return (
             <div key={a.id} className="bg-white border rounded-2xl p-5">
-              <div className="flex justify-between items-start"><div><div className="font-semibold">{w.title}</div><div className="text-xs text-zinc-500">{a.assigned_date} • {a.status} • {w.notes}</div></div><button onClick={() => setStore((s)=> toggleAssignmentComplete(s, a.id))} className={`text-xs px-3 py-1.5 rounded-full font-bold ${a.status==="completed" ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{a.status==="completed" ? "Completed ✓" : "Mark complete"}</button></div>
+              <div className="flex justify-between items-start"><div><div className="font-semibold">{w.title}</div><div className="text-xs text-zinc-500">{a.assigned_date} • {a.status} • {w.notes}</div></div><button onClick={handleToggleLocal} className={`text-xs px-3.5 py-1.5 rounded-full font-bold ${isCompleted ? "bg-emerald-500 text-white" : "bg-zinc-900 text-white"}`}>{isCompleted ? "Completed ✓" : "Mark complete"}</button></div>
+              {isCompleted && <button onClick={() => setExpanded((p)=> ({...p, [a.id]: false}))} className="mt-2 text-xs underline text-zinc-500">Compress</button>}
               <div className="mt-4 space-y-4">
                 {w.exercises.map((ex, idx) => {
                   const meta = exerciseById(ex.exercise_id);
