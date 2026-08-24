@@ -1,7 +1,7 @@
 // Supabase CRUD wrappers - used when env vars are set. Falls back to localStorage otherwise.
 import { createClient } from "./supabase/client";
 
-export type DbClient = { id: string; trainer_id: string; name: string; email: string | null; phone: string | null; invite_token: string; status: string; created_at: string };
+export type DbClient = { id: string; trainer_id: string; name: string; email: string | null; phone: string | null; invite_token: string; status: string; created_at: string; bio: string | null; goals: string | null };
 export type DbWorkout = { id: string; trainer_id: string; title: string; notes: string | null; created_at: string };
 export type DbWorkoutExercise = { id: string; workout_id: string; exercise_id: string; sets: number; reps: string; rest_seconds: number; position: number };
 export type DbAssignment = { id: string; workout_id: string; client_id: string; assigned_date: string; status: string };
@@ -34,13 +34,19 @@ export async function fetchTrainerData() {
   return { user, clients: clients ?? [], workouts: workouts ?? [], assignments: filteredAssignments };
 }
 
-export async function createClientDb(name: string, email: string, phone: string) {
+export async function createClientDb(name: string, email: string, phone: string, bio?: string, goals?: string) {
   const supa = createClient();
   const { data: { user } } = await supa.auth.getUser();
   if (!user) throw new Error("Not authenticated");
-  const { data, error } = await supa.from("clients").insert({ trainer_id: user.id, name, email: email || null, phone: phone || null, invite_token: uidToken(), status: "pending" }).select().single();
+  const { data, error } = await supa.from("clients").insert({ trainer_id: user.id, name, email: email || null, phone: phone || null, invite_token: uidToken(), status: "pending", bio: bio || null, goals: goals || null }).select().single();
   if (error) throw error;
   return data as DbClient;
+}
+
+export async function updateClientBioGoalsDb(id: string, bio: string, goals: string) {
+  const supa = createClient();
+  const { error } = await supa.from("clients").update({ bio, goals }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function createWorkoutDb(title: string, notes: string, exercises: { exercise_id: string; sets: number; reps: string; rest: number }[]) {

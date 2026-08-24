@@ -104,6 +104,10 @@ create policy "anon can read workouts public" on workouts for select using (true
 -- Restrictive variant (comment out above and uncomment below after you implement service_role fetch):
 -- create policy "anon none" on clients for select using (false);
 
+-- Migration: add bio/goals for client customization (run if table already exists)
+alter table clients add column if not exists bio text;
+alter table clients add column if not exists goals text;
+
 -- Seed exercises (50)
 insert into exercises (id, name, muscle_group) values
 ('1','Barbell Back Squat','Legs'),('2','Deadlift','Back'),('3','Bench Press','Chest'),('4','Overhead Press','Shoulders'),('5','Pull-Up','Back'),

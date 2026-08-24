@@ -10,6 +10,8 @@ export type Client = {
   invite_token: string;
   status: "active" | "pending";
   created_at: string;
+  bio?: string;
+  goals?: string;
 };
 
 export type Workout = {
@@ -57,8 +59,8 @@ type Store = {
 function defaultStore(): Store {
   return {
     clients: [
-      { id: "c1", name: "Alex Morgan", email: "alex@example.com", phone: "555-0101", invite_token: "tok_alex123", status: "active", created_at: new Date().toISOString() },
-      { id: "c2", name: "Jamie Lee", email: "jamie@example.com", phone: "555-0102", invite_token: "tok_jamie456", status: "pending", created_at: new Date().toISOString() },
+      { id: "c1", name: "Alex Morgan", email: "alex@example.com", phone: "555-0101", invite_token: "tok_alex123", status: "active", created_at: new Date().toISOString(), bio: "28, beginner, desk job, wants to build strength. No injuries.", goals: "Lose 5kg, squat 80kg, train 3x/week consistently." },
+      { id: "c2", name: "Jamie Lee", email: "jamie@example.com", phone: "555-0102", invite_token: "tok_jamie456", status: "pending", created_at: new Date().toISOString(), bio: "34, intermediate, knee niggle left leg.", goals: "Hypertrophy upper body, rehab knee for running." },
     ],
     workouts: [
       {
@@ -87,7 +89,10 @@ export function loadStore(): Store {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
       return d;
     }
-    return JSON.parse(raw) as Store;
+    const parsed = JSON.parse(raw) as Store;
+    // Migration: add bio/goals defaults if missing
+    parsed.clients = parsed.clients.map((c) => ({ bio: "", goals: "", ...c }));
+    return parsed;
   } catch {
     return defaultStore();
   }
@@ -107,7 +112,7 @@ export function exerciseById(id: string) {
 }
 
 // Helpers used by UI
-export function createClient(s: Store, data: { name: string; email: string; phone: string }): Store {
+export function createClient(s: Store, data: { name: string; email: string; phone: string; bio?: string; goals?: string }): Store {
   const c: Client = {
     id: uid(),
     name: data.name,
@@ -116,8 +121,14 @@ export function createClient(s: Store, data: { name: string; email: string; phon
     invite_token: "tok_" + uid() + uid(),
     status: "pending",
     created_at: new Date().toISOString(),
+    bio: data.bio ?? "",
+    goals: data.goals ?? "",
   };
   return { ...s, clients: [c, ...s.clients] };
+}
+
+export function updateClientBioGoals(s: Store, id: string, bio: string, goals: string): Store {
+  return { ...s, clients: s.clients.map((c) => (c.id === id ? { ...c, bio, goals } : c)) };
 }
 
 export function createWorkout(
